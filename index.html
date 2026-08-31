@@ -143,10 +143,140 @@
         }
         document.getElementById('username-field').style.display = "none";
 
-        // ফায়ারবেস অথেন্টিকেশন প্রসেসিং
+// ফায়ারবেস ছাড়া সরাসরি লগইন বাইপাস মেকানিজম
         function handleAuth() {
-            const email = document.getElementById('email-field').value;
-            const password = document.getElementById('password-field').value;
-            const username = document.getElementById('username-field').value;
+            const username = document.getElementById('username-field').value || "User_" + Math.floor(Math.random() * 1000);
+            
+            currentUser = {
+                uid: 'user_' + new Date().getTime(),
+                displayName: username,
+                email: document.getElementById('email-field').value || 'test@backbenchers.com'
+            };
+            
+            document.getElementById('auth-container').style.display = 'none';
+            document.getElementById('app-container').style.display = 'grid';
+            document.getElementById('user-display-name').innerText = currentUser.displayName;
+        }
 
-            if (!email || !password) return alert('অনুগ্রহ করে ইমেইল এবং পাসওয়ার্ড সঠিকভাবে দিন।');
+        function logout() {
+            currentUser = null;
+            document.getElementById('auth-container').style.display = 'block';
+            document.getElementById('app-container').style.display = 'none';
+        }
+
+        // চ্যাট মেসেজ এবং পোস্টের বাকি গ্লোবাল সকেট কোড
+        function sendChatMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            if (input.value.trim() && currentUser) {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                const msgData = {
+                    uid: currentUser.uid,
+                    name: currentUser.displayName,
+                    text: input.value.trim(),
+                    time: timeString
+                };
+                socket.emit('chat message', msgData);
+                input.value = '';
+            }
+        }
+
+        socket.on('chat message', (data) => {
+            const messagesList = document.getElementById('chat-messages');
+            const item = document.createElement('li');
+            const isMe = currentUser && data.uid === currentUser.uid;
+            item.className = msg-item ${isMe ? 'msg-me' : 'msg-sender'};
+            
+            item.innerHTML = `
+                <span class="msg-user">${data.name}</span>
+                <div>${data.text}</div>
+                <span class="msg-meta">${data.time}</span>
+            `;
+            messagesList.appendChild(item);
+            messagesList.scrollTop = messagesList.scrollHeight;
+        });
+
+        function createNewPost() {
+            const postText = document.getElementById('post-text');
+            if (postText.value.trim() && currentUser) {
+                const now = new Date();
+                const postData = {
+                    id: 'post_' + now.getTime(),
+                    author: currentUser.displayName,
+                    content: postText.value.trim(),
+                    time: now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                };
+                socket.emit('new post', postData);
+                postText.value = '';
+            }
+        }
+
+        socket.on('new post', (post) => {
+            const timeline = document.getElementById('timeline-posts');
+            const card = document.createElement('div');
+            card.className = 'post-card';
+            card.id = post.id;
+            
+            card.innerHTML = `
+                <div class="post-header">
+                    <img src="https://flaticon.com" class="post-avatar">
+                    <div>
+                        <div class="post-author">${post.author}</div>
+                        <div class="post-time">${post.time}</div>
+                    </div>
+                </div>
+                <div class="post-content">${post.content}</div>
+                <div class="post-actions">
+                    <button class="action-btn" id="like-btn-${post.id}" onclick="likePost('${post.id}')">👍 <span id="like-count-${post.id}">0</span> Likes</button>
+                </div>
+                <div>
+                    <ul class="comment-list" id="comment-list-${post.id}" style="display:none;"></ul>
+                    <div class="comment-box">
+                        <input type="text" id="comment-input-${post.id}" class="comment-input" placeholder="মন্তব্য লিখুন...">
+                        <button class="btn" style="width:auto; padding:5px 12px; font-size:12px;" onclick="submitComment('${post.id}')">Comment</button>
+                    </div>
+                </div>
+            `;
+            timeline.insertBefore(card, timeline.firstChild);
+        });
+
+        function likePost(postId) {
+            if (!currentUser) return;
+            const likeCountSpan = document.getElementById(like-count-${postId});
+            let currentLikes = parseInt(likeCountSpan.innerText);
+            socket.emit('like post', { postId: postId, likes: currentLikes + 1 });
+        }
+
+        socket.on('like post', (data) => {
+            const countEl = document.getElementById(like-count-${data.postId});
+            if (countEl) countEl.innerText = data.likes;
+        });
+
+        function submitComment(postId) {
+            const input = document.getElementById(comment-input-${postId});
+            if (input.value.trim() && currentUser) {
+                const commentData = {
+                    postId: postId,
+                    author: currentUser.displayName,
+                    text: input.value.trim()
+                };
+                socket.emit('comment post', commentData);
+                input.value = '';
+            }
+        }
+
+        socket.on('comment post', (data) => {
+            const listEl = document.getElementById(comment-list-${data.postId});
+            if (listEl) {
+                listEl.style.display = 'block';
+                const li = document.createElement('li');
+                li.className = 'comment-item';
+                li.innerHTML = <strong>${data.author}:</strong> ${data.text};
+                listEl.appendChild(li);
+            }
+        });
+    </script>
+</body>
+</html>
