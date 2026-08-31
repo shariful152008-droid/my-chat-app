@@ -3,45 +3,150 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>আমার চ্যাট অ্যাপ</title>
+    <title>Backbenchers Hub - Professional Network</title>
+    <!-- Firebase core SDKs এবং Socket.io ক্লায়েন্ট স্ক্রিপ্ট লাইব্রেরি -->
+    <script src="https://gstatic.com"></script>
+    <script src="https://gstatic.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }
-        #chat-box { max-width: 500px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; height: 80vh; }
-        #messages { list-style-type: none; padding: 20px; margin: 0; overflow-y: auto; flex-grow: 1; }
-        #messages li { padding: 10px; background: #e4e6eb; border-radius: 10px; margin-bottom: 10px; width: fit-content; max-width: 80%; }
-        #form { display: flex; padding: 10px; border-top: 1px solid #ddd; }
-        #input { flex-grow: 1; padding: 10px; border: 1px solid #ccc; border-radius: 20px; outline: none; }
-        #button { padding: 10px 20px; background: #0084ff; color: white; border: none; border-radius: 20px; margin-left: 10px; cursor: pointer; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: #f0f2f5; color: #1c1e21; display: flex; justify-content: center; min-height: 100vh; }
+        
+        /* ১. অথেন্টিকেশন বা লগইন ইন্টারফেস */
+        #auth-container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 400px; margin-top: 10vh; height: fit-content; text-align: center; }
+        #auth-container h2 { margin-bottom: 20px; color: #0084ff; }
+        .input-field { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 6px; outline: none; font-size: 14px; }
+        .btn { width: 100%; padding: 12px; background: #0084ff; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; }
+        .btn:hover { background: #0066cc; }
+        .toggle-text { margin-top: 15px; font-size: 14px; color: #65676b; cursor: pointer; }
+
+        /* ২. মূল অ্যাপ ড্যাশবোর্ড লেআউট */
+        #app-container { display: none; width: 100%; max-width: 1100px; grid-template-columns: 280px 1fr 340px; gap: 20px; padding: 20px; height: 100vh; }
+        
+        /* প্রোফাইল প্যানেল (বাম দিক) */
+        .profile-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); text-align: center; height: fit-content; }
+        .avatar { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid #0084ff; margin-bottom: 10px; }
+        .profile-name { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+
+        /* ফিড বা নিউজফ্ল্যাশ এরিয়া (মাঝের অংশ) */
+        .feed-area { overflow-y: auto; padding-right: 5px; height: calc(100vh - 40px); }
+        .create-post-box { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        .post-input { width: 100%; height: 80px; padding: 10px; border: 1px solid #ddd; border-radius: 6px; resize: none; outline: none; font-size: 15px; margin-bottom: 10px; }
+        
+        /* পোস্ট ডিজাইন */
+        .post-card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); margin-bottom: 15px; }
+        .post-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .post-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+        .post-author { font-weight: bold; font-size: 14px; }
+        .post-time { font-size: 11px; color: #65676b; }
+        .post-content { font-size: 15px; margin-bottom: 12px; line-height: 1.4; word-break: break-word; }
+        .post-actions { display: flex; gap: 20px; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 8px 0; margin-bottom: 10px; }
+        .action-btn { background: none; border: none; color: #65676b; font-weight: bold; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px; }
+        .action-btn.active { color: #0084ff; }
+        
+        /* কমেন্ট সেকশন */
+        .comment-box { display: flex; gap: 5px; margin-top: 10px; }
+        .comment-input { flex-grow: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 20px; outline: none; font-size: 13px; }
+        .comment-list { list-style: none; margin-top: 10px; font-size: 13px; background: #f0f2f5; border-radius: 6px; padding: 5px 10px; }
+        .comment-item { margin: 5px 0; border-bottom: 1px solid #e4e6eb; padding-bottom: 3px; }
+
+        /* মেসেজিং বা চ্যাট প্যানেল (ডান দিক) */
+        .chat-panel { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); display: flex; flex-direction: column; height: calc(100vh - 40px); }
+        .chat-header { background: #0084ff; color: white; padding: 15px; border-top-left-radius: 8px; border-top-right-radius: 8px; font-weight: bold; text-align: center; }
+        .chat-messages { flex-grow: 1; padding: 15px; overflow-y: auto; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+        
+        /* প্রফেশনাল চ্যাট বাবল ও টাইমস্ট্যাম্প */
+        .msg-item { padding: 10px 14px; border-radius: 15px; max-width: 75%; width: fit-content; word-break: break-word; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .msg-sender { background: #e4e6eb; color: black; align-self: flex-start; border-bottom-left-radius: 2px; }
+        .msg-me { background: #0084ff; color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .msg-meta { font-size: 10px; opacity: 0.7; margin-top: 4px; display: block; text-align: right; font-weight: 500; }
+        .msg-user { font-size: 11px; font-weight: bold; margin-bottom: 2px; display: block; color: #0055aa; }
+        .msg-me .msg-user { color: #ccffff; }
+        
+        .chat-form { display: flex; padding: 10px; border-top: 1px solid #eee; gap: 5px; }
+        .chat-input { flex-grow: 1; padding: 10px; border: 1px solid #ccc; border-radius: 20px; outline: none; font-size: 14px; }
     </style>
 </head>
 <body>
-    <div id="chat-box">
-        <ul id="messages"></ul>
-        <form id="form" action="">
-            <input id="input" autocomplete="off" placeholder="মেসেজ লিখুন..." /><button id="button">Send</button>
-        </form>
+
+    <!-- ১. লগইন/রেজিস্ট্রেশন ইউজার ইন্টারফেস -->
+    <div id="auth-container">
+        <h2 id="auth-title">লগইন করুন</h2>
+        <input type="text" id="username-field" class="input-field" placeholder="পূর্ণ নাম / ইউজারনেম (শুধু সাইন-আপের জন্য)">
+        <input type="email" id="email-field" class="input-field" placeholder="আপনার ইমেইল আইডি">
+        <input type="password" id="password-field" class="input-field" placeholder="পাসওয়ার্ড (নূন্যতম ৬ অক্ষর)">
+        <button id="auth-btn" class="btn" onclick="handleAuth()">লগইন</button>
+        <p id="toggle-auth" class="toggle-text" onclick="toggleAuthMode()">নতুন অ্যাকাউন্ট তৈরি করতে চান? সাইন-আপ করুন</p>
     </div>
-    <script src="/socket.io/socket.io.js"></script>
+
+    <!-- ২. প্রফেশনাল সোশ্যাল মিডিয়া এবং চ্যাট ইন্টারফেস -->
+    <div id="app-container">
+        <!-- বাম দিক: ইউজার প্রোফাইল কার্ড -->
+        <div class="profile-card">
+            <!-- ডিফল্ট প্রফেশনাল প্রোফাইল পিকচার এভারটার -->
+            <img src="https://flaticon.com" class="avatar" alt="Profile Picture">
+            <div id="user-display-name" class="profile-name">লোডিং...</div>
+            <p style="font-size: 13px; color: #65676b; margin-bottom: 15px;">সক্রিয় সদস্য</p>
+            <button class="btn" style="background:#f02849; padding: 8px;" onclick="logout()">লগআউট</button>
+        </div>
+
+        <!-- মাঝের অংশ: টাইমলাইন এবং পোস্ট ম্যানেজার -->
+        <div class="feed-area">
+            <div class="create-post-box">
+                <textarea id="post-text" class="post-input" placeholder="আজকে আপনার মনে কী চলছে বা নতুন কী শেয়ার করতে চান?"></textarea>
+                <button class="btn" style="width: auto; float: right; padding: 8px 25px;" onclick="createNewPost()">Post</button>
+                <div style="clear: both;"></div>
+            </div>
+            <div id="timeline-posts">
+                <!-- ডাইনামিক পোস্টগুলো এখানে জমা হবে -->
+            </div>
+        </div>
+
+        <!-- ডান দিক: রিয়েল-টাইম হোয়াটসঅ্যাপ স্টাইল চ্যাট প্যানেল -->
+        <div class="chat-panel">
+            <div class="chat-header">গ্লোবাল চ্যাট রুম (Backbenchers)</div>
+            <ul id="chat-messages" class="chat-messages"></ul>
+            <form id="chat-form" class="chat-form" onsubmit="sendChatMessage(event)">
+                <input id="chat-input" class="chat-input" autocomplete="off" placeholder="মেসেজ লিখুন..." required />
+                <button class="btn" style="width: auto; border-radius: 20px; padding: 8px 15px;">Send</button>
+            </form>
+        </div>
+    </div>
+
     <script>
+        // আপনার Firebase প্রজেক্টের সাথে সিকিউর কানেকশন স্টাবলিশমেন্ট সেটিংস
+        // (Firebase কনসোলে প্রজেক্ট খুলে Web App যোগ করে এই কনফিগারেশন রিয়েল ডেটা দিয়ে আপডেট করতে পারেন)
+        const firebaseConfig = {
+            apiKey: "AIzaSyAsFakeKeyExample-UpdateWithYourActualKey",
+            authDomain: "://firebaseapp.com",
+            projectId: "backbenchers-chat",
+            storageBucket: "://appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:12345:web:fakeappid"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
         const socket = io();
-        const form = document.getElementById('form');
-        const input = document.getElementById('input');
-        const messages = document.getElementById('messages');
 
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            if (input.value) {
-                socket.emit('chat message', input.value);
-                input.value = '';
-            }
-        });
+        let currentUser = null;
+        let isSignUpMode = false;
 
-        socket.on('chat message', (msg) => {
-            const item = document.createElement('li');
-            item.textContent = msg;
-            messages.appendChild(item);
-            messages.scrollTop = messages.scrollHeight;
-        });
-    </script>
-</body>
-</html>
+        // সাইন-আপ এবং লগইন মুড সুইচ মেকানিজম
+        function toggleAuthMode() {
+            isSignUpMode = !isSignUpMode;
+            document.getElementById('auth-title').innerText = isSignUpMode ? "নতুন অ্যাকাউন্ট তৈরি" : "লগইন করুন";
+            document.getElementById('auth-btn').innerText = isSignUpMode ? "সাইন-আপ" : "লগইন";
+            document.getElementById('username-field').style.display = isSignUpMode ? "block" : "none";
+            document.getElementById('toggle-auth').innerText = isSignUpMode ? "আগের অ্যাকাউন্ট আছে? লগইন করুন" : "নতুন অ্যাকাউন্ট তৈরি করতে চান? সাইন-আপ করুন";
+        }
+        document.getElementById('username-field').style.display = "none";
+
+        // ফায়ারবেস অথেন্টিকেশন প্রসেসিং
+        function handleAuth() {
+            const email = document.getElementById('email-field').value;
+            const password = document.getElementById('password-field').value;
+            const username = document.getElementById('username-field').value;
+
+            if (!email || !password) return alert('অনুগ্রহ করে ইমেইল এবং পাসওয়ার্ড সঠিকভাবে দিন।');
