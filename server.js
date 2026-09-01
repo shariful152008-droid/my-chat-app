@@ -27,5 +27,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(সার্ভার সফলভাবে সচল হয়েছে পোর্ট: ${PORT});
+   console.log(Server is running on port ${PORT});
 });
