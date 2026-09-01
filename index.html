@@ -49,25 +49,27 @@
 </head>
 <body>
 
+    <!-- ১. লগইন ইন্টারফেস (সরাসরি বাটন ট্রিলিয়ারিং লজিক সহ) -->
     <div id="auth-container">
         <h2>Backbenchers Hub</h2>
-        <input type="text" id="username-field" class="input-field" placeholder="আপনার সুন্দর নাম বা ইউজারনেম" required>
-        <input type="email" id="email-field" class="input-field" placeholder="আপনার ইমেইল আইডি">
-        <button id="auth-btn" class="btn" onclick="handleAuth()">লগইন করুন</button>
+        <input type="text" id="username-field" class="input-field" placeholder="আপনার সুন্দর নাম বা ইউজারনেম" required />
+        <input type="email" id="email-field" class="input-field" placeholder="আপনার ইমেইল আইডি" />
+        <button id="auth-btn" class="btn">লগইন করুন</button>
     </div>
 
+    <!-- ২. মূল সোশ্যাল অ্যাপ ড্যাশবোর্ড -->
     <div id="app-container">
         <div class="profile-card">
             <img src="https://flaticon.com" class="avatar" alt="Profile">
             <div id="user-display-name" class="profile-name">লোডিং...</div>
             <p style="font-size: 13px; color: #65676b; margin-bottom: 15px;">সক্রিয় সদস্য</p>
-            <button class="btn" style="background:#f02849; padding: 8px;" onclick="logout()">লগআউট</button>
+            <button class="btn" style="background:#f02849; padding: 8px;" id="logout-btn">লগআউট</button>
         </div>
 
         <div class="feed-area">
             <div class="create-post-box">
                 <textarea id="post-text" class="post-input" placeholder="আজকে আপনার মনে কী চলছে বা নতুন কী শেয়ার করতে চান?"></textarea>
-                <button class="btn" style="width: auto; float: right; padding: 8px 25px;" onclick="createNewPost()">Post</button>
+                <button class="btn" style="width: auto; float: right; padding: 8px 25px;" id="post-btn">Post</button>
                 <div style="clear: both;"></div>
             </div>
             <div id="timeline-posts"></div>
@@ -76,9 +78,9 @@
         <div class="chat-panel">
             <div class="chat-header">গ্লোবাল চ্যাট রুম (Backbenchers)</div>
             <ul id="chat-messages" class="chat-messages"></ul>
-            <form id="chat-form" class="chat-form" onsubmit="sendChatMessage(event)">
+            <form id="chat-form" class="chat-form">
                 <input id="chat-input" class="chat-input" autocomplete="off" placeholder="মেসেজ লিখুন..." required />
-                <button class="btn" style="width: auto; border-radius: 20px; padding: 8px 15px;">Send</button>
+                <button type="submit" class="btn" style="width: auto; border-radius: 20px; padding: 8px 15px;">Send</button>
             </form>
         </div>
     </div>
@@ -87,23 +89,29 @@
         const socket = io();
         let currentUser = null;
 
-        function handleAuth() {
+        // লগইন বাটনের ভেতরের অ্যাকশন লজিক ফিক্সিং
+        document.getElementById('auth-btn').addEventListener('click', () => {
             const username = document.getElementById('username-field').value.trim();
             const email = document.getElementById('email-field').value.trim() || 'member@backbenchers.com';
-            if (!username) return alert('অনুগ্রহ করে আপনার নামটি লিখুন।');
+            
+            if (!username) {
+                alert('অনুগ্রহ করে আপনার নামটি লিখুন।');
+                return;
+            }
+            
             currentUser = { uid: 'user_' + new Date().getTime(), displayName: username, email: email };
             document.getElementById('auth-container').style.display = 'none';
             document.getElementById('app-container').style.display = 'grid';
             document.getElementById('user-display-name').innerText = currentUser.displayName;
-        }
+        });
 
-        function logout() {
+        document.getElementById('logout-btn').addEventListener('click', () => {
             currentUser = null;
             document.getElementById('auth-container').style.display = 'block';
             document.getElementById('app-container').style.display = 'none';
-        }
+        });
 
-        function sendChatMessage(e) {
+        document.getElementById('chat-form').addEventListener('submit', (e) => {
             e.preventDefault();
             const input = document.getElementById('chat-input');
             if (input.value.trim() && currentUser) {
@@ -112,7 +120,7 @@
                 socket.emit('chat message', { uid: currentUser.uid, name: currentUser.displayName, text: input.value.trim(), time: timeString });
                 input.value = '';
             }
-        }
+        });
 
         socket.on('chat message', (data) => {
             const messagesList = document.getElementById('chat-messages');
@@ -124,17 +132,14 @@
             messagesList.scrollTop = messagesList.scrollHeight;
         });
 
-        function createNewPost() {
+        document.getElementById('post-btn').addEventListener('click', () => {
             const postText = document.getElementById('post-text');
             if (postText.value.trim() && currentUser) {
                 const now = new Date();
                 socket.emit('new post', { id: 'post_' + now.getTime(), author: currentUser.displayName, content: postText.value.trim(), time: now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
                 postText.value = '';
             }
-        }
+        });
 
         socket.on('new post', (post) => {
             const timeline = document.getElementById('timeline-posts');
-            const card = document.createElement('div');
-            card.className = 'post-card';
-            card.id = post.id;
